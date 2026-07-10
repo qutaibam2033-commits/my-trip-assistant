@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سافِر - دليلك السياحي الذكي ومخطط الرحلات</title>
+    <!-- Tailwind CSS لضمان واجهة سريعة الاستجابة وأنيقة -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- مكتبة الخرائط التفاعلية Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- أيقونات Lucide لمظهر عصري -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Font Awesome للأيقونات الإضافية -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+        /* تعديل مظهر الخريطة لتناسب التصميم */
+        #map {
+            height: 480px;
+            border-radius: 1.5rem;
+            z-index: 10;
+        }
+        .custom-pulse-marker {
+            background: rgba(16, 185, 129, 0.6);
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 1);
+            animation: pulse 1.8s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+        /* شريط التمرير الأنيق */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <header class="bg-white shadow-md sticky top-0 z-50 border-b border-slate-100">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-tr from-emerald-600 to-teal-500 text-white p-2.5 rounded-2xl shadow-lg shadow-emerald-200">
+                    <i data-lucide="compass" class="w-8 h-8"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                        سَافِر 
+                        <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">الجيل الجديد الذكي</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-400">مرشدك السياحي المتكامل وملاحة الـ GPS وبوابة الحجز الفوري</p>
+                </div>
+            </div>
+            
+            <!-- أزرار التبديل بين الأقسام الرئيسية -->
+            <nav class="flex bg-slate-100 p-1.5 rounded-2xl gap-1">
+                <button onclick="switchTab('explore')" id="tab-explore" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 bg-white text-emerald-700 shadow-sm flex items-center gap-1.5">
+                    <i data-lucide="map" class="w-4 h-4"></i>استكشف وتخطيط المسار
+                </button>
+                <button onclick="switchTab('planner')" id="tab-planner" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+                    <i data-lucide="calendar" class="w-4 h-4"></i>مخطط الرحلات
+                </button>
+                <button onclick="switchTab('tools')" id="tab-tools" class="tab-btn px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+                    <i data-lucide="briefcase" class="w-4 h-4"></i>أدوات السفر
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- إشعارات مخصصة بديلة لـ alert() -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 max-w-sm">
+        <div class="bg-emerald-500/20 text-emerald-400 p-1.5 rounded-lg">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+        </div>
+        <div class="flex-grow">
+            <span id="toast-msg" class="text-xs font-semibold leading-relaxed">رسالة ترحيبية</span>
+        </div>
+    </div>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6">
+        
+        <!-- قسم 1: استكشاف المعالم والمسارات والخريطة -->
+        <section id="section-explore" class="tab-content grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- اللوحة الجانبية: التحكم والاختيار -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- اختيار الدولة والفلترة -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="globe" class="text-emerald-600 w-5 h-5"></i>
+                        بوابتك لاستكشاف العالم
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 mb-1.5">اختر وجهتك الدولية</label>
+                            <select id="country-select" onchange="loadDestinations()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                                <option value="PAL">فلسطين الأبية 🇵🇸</option>
+                                <option value="KSA">المملكة العربية السعودية 🇸🇦</option>
+                                <option value="EGY">جمهورية مصر العربية 🇪🇬</option>
+                                <option value="UAE">الإمارات العربية المتحدة 🇦🇪</option>
+                                <option value="JOR">المملكة الأردنية الهاشمية 🇯🇴</option>
+                                <option value="MAR">المملكة المغربية 🇲🇦</option>
+                                <option value="TUR">الجمهورية التركية 🇹🇷</option>
+                                <option value="FRA">جمهورية فرنسا 🇫🇷</option>
+                                <option value="JPN">دولة اليابان 🇯🇵</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 mb-1.5">التصنيف السياحي المفضل</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="filterCategory('all')" id="cat-all" class="cat-btn px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white transition-all shadow-sm">الكل</button>
+                                <button onclick="filterCategory('historical')" id="cat-historical" class="cat-btn px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-100 hover:bg-slate-100 transition-all">تاريخي وأثري</button>
+                                <button onclick="filterCategory('modern')" id="cat-modern" class="cat-btn px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-100 hover:bg-slate-100 transition-all">حديث وترفيهي</button>
+                                <button onclick="filterCategory('cultural')" id="cat-cultural" class="cat-btn px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-100 hover:bg-slate-100 transition-all">ثقافي ومعرفي</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ميزة تتبع الـ GPS وحساب المسافات -->
+                <div class="bg-gradient-to-br from-slate-900 to-emerald-950 text-white p-6 rounded-3xl shadow-xl space-y-4 relative overflow-hidden">
+                    <div class="absolute -right-10 -bottom-10 opacity-10">
+                        <i data-lucide="navigation-2" class="w-40 h-40"></i>
+                    </div>
+                    <div class="relative z-10 space-y-3">
+                        <h3 class="text-base font-bold flex items-center gap-2">
+                            <i data-lucide="locate-fixed" class="text-emerald-400 w-5 h-5"></i>
+                            تتبع الموقع وحساب الأبعاد المباشرة
+                        </h3>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">
+                            قم بالسماح للتطبيق بالوصول للموقع عبر نظام GPS لحساب دقيق ومباشر لمسافات تباعدك عن كافة المعالم في الدولة المحددة.
+                        </p>
+                        <button onclick="requestLocation()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl transition duration-200 flex items-center justify-center gap-2 text-xs">
+                            <i data-lucide="map-pin" class="w-4 h-4"></i>
+                            تحديد إحداثيات موقعي الفعلي
+                        </button>
+                        <div id="gps-status" class="text-[10px] text-center text-slate-400 bg-slate-950/45 p-2 rounded-lg border border-slate-800">نظام تحديد المواقع (GPS) متوقف حالياً</div>
+                    </div>
+                </div>
+
+                <!-- مسار الرحلة المقترح الذكي -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                            <i data-lucide="milestone" class="text-emerald-600 w-4.5 h-4.5"></i>
+                            المسار السياحي الذكي الأفضل
+                        </h3>
+                        <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">خوارزمية TSP</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">
+                        يقوم التطبيق بالربط التلقائي بين كافة المعالم الظاهرة في الدولة المحددة وحساب الترتيب الأمثل لرحلتك لتوفير الوقت والجهد على الطرقات.
+                    </p>
+                    <button onclick="generateOptimalRoute()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition duration-200">
+                        <i data-lucide="navigation" class="w-4 h-4 text-emerald-400"></i>
+                        رسم وتحليل مسار الرحلة الأمثل
+                    </button>
+                    <!-- لوحة خطوة بخطوة للمسار -->
+                    <div id="route-steps-container" class="hidden space-y-3 pt-2">
+                        <span class="text-xs font-bold text-slate-400 block border-b pb-1.5">خطوات المسار السياحي المقترح:</span>
+                        <div id="route-steps-list" class="space-y-2 max-h-[160px] overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 space-y-6">
+                <!-- نافذة الخريطة التفاعلية -->
+                <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 px-1">
+                        <div>
+                            <span class="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                                <i data-lucide="map" class="text-emerald-600 w-4 h-4"></i>
+                                الخريطة الجغرافية لنظام الـ GPS والملاحة التفاعلية
+                            </span>
+                            <p class="text-[10px] text-slate-400">تظهر مسارات الطيران ✈️، المعالم السياحية 🏛️، والفنادق الفخمة 🏨 لكل بلد تختارونه</p>
+                        </div>
+                        <button onclick="resetMapView()" class="text-xs text-slate-600 hover:text-emerald-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 flex items-center gap-1 transition">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> إعادة تركيز الخريطة
+                        </button>
+                    </div>
+                    <div id="map" class="shadow-inner border border-slate-100"></div>
+                </div>
+
+                <!-- تفاصيل المعلم السياحي المختار بالتفصيل الكامل والصور والمعلومات -->
+                <div id="spot-detail-card" class="bg-white rounded-3xl shadow-md border border-slate-100 overflow-hidden hidden transition-all duration-300">
+                    <!-- غلاف صورة المعلم -->
+                    <div class="h-64 sm:h-80 w-full relative">
+                        <img id="detail-image" src="" alt="Landmark Image" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent"></div>
+                        <div class="absolute bottom-6 right-6 left-6 text-white space-y-1">
+                            <span id="detail-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white uppercase tracking-wider">تاريخي وعريق</span>
+                            <h2 id="detail-title" class="text-2xl sm:text-3xl font-extrabold leading-tight">اسم المعلم السياحي</h2>
+                        </div>
+                    </div>
+
+                    <!-- محتوى تفاصيل المعلم -->
+                    <div class="p-6 sm:p-8 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                            <!-- الوصف والمعلومات الموثوقة -->
+                            <div class="md:col-span-8 space-y-4">
+                                <div class="flex items-center gap-2 text-slate-400 text-xs">
+                                    <i data-lucide="info" class="w-4 h-4 text-emerald-600"></i>
+                                    <span class="font-bold text-slate-600">وصف شامل ومعلومات تاريخية موثوقة:</span>
+                                </div>
+                                <p id="detail-desc" class="text-slate-600 text-sm leading-relaxed text-justify">وصف كامل حول المكان التاريخي أو الترفيهي المختار.</p>
+                                
+                                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
+                                    <span class="text-xs font-bold text-slate-700 block flex items-center gap-1.5">
+                                        <i data-lucide="book-open" class="w-4 h-4 text-emerald-600"></i>لمحة ثقافية وتاريخية موثوقة:
+                                    </span>
+                                    <p id="detail-history" class="text-xs text-slate-500 leading-relaxed">السياق التاريخي الأصيل للموقع والمعلومات الجغرافية الموثقة.</p>
+                                </div>
+                            </div>
+
+                            <!-- تفاصيل الزيارة والأسعار والساعات -->
+                            <div class="md:col-span-4 bg-slate-50/50 p-5 rounded-3xl border border-slate-100 space-y-4 h-fit">
+                                <h4 class="text-xs font-extrabold text-slate-900 border-b pb-2 flex items-center gap-1">
+                                    <i data-lucide="ticket" class="text-emerald-600 w-4 h-4"></i>دليل التخطيط للزيارة
+                                </h4>
+                                
+                                <div class="space-y-3">
+                                    <div>
+                                        <span class="block text-[10px] font-bold text-slate-400">سعر تذكرة الدخول المقدرة</span>
+                                        <span id="detail-ticket" class="text-xs font-bold text-slate-700">دخول مجاني</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-[10px] font-bold text-slate-400">ساعات العمل الرسمية</span>
+                                        <span id="detail-hours" class="text-xs font-bold text-slate-700">09:00 صباحاً - 06:00 مساءً</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-[10px] font-bold text-slate-400">أفضل الأوقات للزيارة</span>
+                                        <span id="detail-best-time" class="text-xs font-bold text-slate-700">فصل الشتاء والربيع</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-[10px] font-bold text-slate-400">نصيحة الخبراء</span>
+                                        <span id="detail-tip" class="text-xs font-medium text-emerald-700 bg-emerald-50/50 p-2 rounded-lg block mt-1">يُفضل الحجز المسبق لتجنب طوابير الانتظار الطويلة.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- أزرار تفاعلية -->
+                        <div class="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
+                            <button onclick="addToItineraryFromDetail()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs flex items-center gap-2 transition shadow-lg shadow-emerald-100">
+                                <i data-lucide="plus" class="w-4 h-4"></i> إضافته كنشاط لبرنامج رحلتي
+                            </button>
+                            <button id="nav-btn" onclick="simulateNavigation()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs flex items-center gap-2 transition shadow-lg shadow-blue-100">
+                                <i data-lucide="navigation" class="w-4 h-4"></i> التوجيه وملاحة GPS الفورية
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- مواعيد انطلاق الرحلات وتذاكر السفر المتاحة لهذه الدولة -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="text-base font-extrabold text-slate-900 flex justify-between items-center">
+                        <span class="flex items-center gap-2">
+                            <i data-lucide="plane-takeoff" class="text-blue-600 w-5 h-5"></i>
+                            مواعيد انطلاق الرحلات وتذاكر السفر المتاحة
+                        </span>
+                        <span class="text-xs text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full font-bold" id="ticket-count">0 تذاكر متوفرة</span>
+                    </h3>
+                    <div id="tickets-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- توليد تذاكر السفر ديناميكياً -->
+                    </div>
+                </div>
+
+                <!-- الفنادق المناسبة للمسافر في المكان المختار -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="text-base font-extrabold text-slate-900 flex justify-between items-center">
+                        <span class="flex items-center gap-2">
+                            <i data-lucide="hotel" class="text-amber-600 w-5 h-5"></i>
+                            أفضل الفنادق المناسبة وأماكن الإقامة الموصى بها
+                        </span>
+                        <span class="text-xs text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full font-bold" id="hotel-count">0 فنادق متوفرة</span>
+                    </h3>
+                    <div id="hotels-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- توليد الفنادق ديناميكياً -->
+                    </div>
+                </div>
+
+                <!-- قائمة بطاقات المعالم السياحية للدولة -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="text-base font-extrabold text-slate-900 flex justify-between items-center">
+                        <span>أبرز الأماكن والمعالم المتاحة للاستكشاف</span>
+                        <span id="list-spots-count" class="bg-emerald-50 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full">0 معالم متوفرة</span>
+                    </h3>
+                    <div id="spots-cards-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- توليد المعالم ديناميكياً مع الصور وبطاقات الفرز الفخمة -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- قسم 2: مخطط الرحلات التفاعلي -->
+        <section id="section-planner" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- أداة تخطيط الرحلات الذكية -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-5">
+                    <div>
+                        <h2 class="text-xl font-extrabold text-slate-900 mb-2">مولّد برامج الرحلات السياحية</h2>
+                        <p class="text-xs text-slate-500 leading-relaxed">أدخل مواصفات رحلتك المخطط لها وسنقوم بصياغة مسودة برنامج سياحي مقترح متكامل يوم بيوم مع نصائح توفير الميزانية.</p>
+                    </div>
+
+                    <div class="space-y-4 border-t border-slate-100 pt-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">الوجهة السياحية</label>
+                            <select id="planner-country" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none font-bold">
+                                <option value="PAL">فلسطين الأبية 🇵🇸</option>
+                                <option value="KSA">المملكة العربية السعودية 🇸🇦</option>
+                                <option value="EGY">جمهورية مصر العربية 🇪🇬</option>
+                                <option value="UAE">الإمارات العربية المتحدة 🇦🇪</option>
+                                <option value="JOR">المملكة الأردنية الهاشمية 🇯🇴</option>
+                                <option value="MAR">المملكة المغربية 🇲🇦</option>
+                                <option value="TUR">الجمهورية التركية 🇹🇷</option>
+                                <option value="FRA">جمهورية فرنسا 🇫🇷</option>
+                                <option value="JPN">دولة اليابان 🇯🇵</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">المدة الكلية (بالأيام)</label>
+                                <input type="number" id="planner-days" value="4" min="1" max="10" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">تصنيف الميزانية المقترحة</label>
+                                <select id="planner-budget" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none font-bold">
+                                    <option value="low">اقتصادية ومدروسة 🪙</option>
+                                    <option value="mid" selected>متوسطة ومثالية 💵</option>
+                                    <option value="high">فاخرة ومترفة 💎</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">الاهتمام السائد للرحلة</label>
+                            <select id="planner-type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none font-bold">
+                                <option value="all">مزيج من الأنشطة المختلفة</option>
+                                <option value="historical">الآثار والتاريخ والتعرف على الحضارات</option>
+                                <option value="modern">العصرية والترفيه والتسوق الممتع</option>
+                                <option value="cultural">الفنون والمتاحف والتراث الثقافي</option>
+                            </select>
+                        </div>
+
+                        <button onclick="generateItinerary()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 text-sm">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                            صياغة وتوليد خطة الرحلة المخصصة
+                        </button>
+                    </div>
+                </div>
+
+                <!-- مخرجات خطة الرحلة وعرض الجدول الزمني -->
+                <div class="lg:col-span-7 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                            <i data-lucide="milestone" class="text-emerald-600 w-5 h-5"></i>
+                            مسار خطة رحلتك المجدولة للأيام
+                        </h3>
+                        <button onclick="clearPlan()" class="text-xs text-red-600 hover:underline font-bold">حذف وتصفير الجدول الحالي</button>
+                    </div>
+
+                    <!-- الجدول التفاعلي المعروض بالأيام -->
+                    <div id="itinerary-timeline" class="space-y-6 relative border-r-2 border-emerald-100 mr-3 pr-4">
+                        <div id="planner-empty-state" class="text-center py-12 text-slate-400">
+                            <i data-lucide="map-pin" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+                            <p class="text-sm">لم تقم بتوليد أي خطة بعد. اضغط على "صياغة وتوليد خطة الرحلة المخصصة" لإنشاء برنامج مميز وتلقائي!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- قسم 3: أدوات السفر والعملات -->
+        <section id="section-tools" class="tab-content hidden grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- أداة 1: حاسبة ميزانية السفر -->
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="wallet" class="text-emerald-600 w-5 h-5"></i>
+                    حاسبة ميزانية السفر
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500">ميزانية الطيران والتأشيرة ($)</label>
+                        <input type="number" id="budget-flight" value="400" oninput="calcTotalBudget()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500">السكن والفنادق (لكل ليلة) ($)</label>
+                        <input type="number" id="budget-hotel" value="80" oninput="calcTotalBudget()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500">المطاعم والأنشطة (يومياً) ($)</label>
+                        <input type="number" id="budget-daily" value="50" oninput="calcTotalBudget()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500">عدد الليالي المتوقعة</label>
+                        <input type="number" id="budget-nights" value="5" oninput="calcTotalBudget()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none">
+                    </div>
+                    <div class="pt-3 border-t border-slate-100 flex justify-between items-center bg-emerald-50 p-3 rounded-xl">
+                        <span class="text-sm font-bold text-slate-700">المجموع الكلي المقدر:</span>
+                        <span id="budget-total" class="text-lg font-extrabold text-emerald-700">$1050</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- أداة 2: محوّل العملات السياحي السريع -->
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="badge-dollar-sign" class="text-emerald-600 w-5 h-5"></i>
+                    محوّل العملات الفوري
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500">المبلغ بالدولار الأمريكي ($)</label>
+                        <input type="number" id="currency-usd" value="100" oninput="convertCurrency()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none">
+                    </div>
+                    <div class="text-center font-bold text-emerald-600 text-sm">يساوي تقريباً بالعملات المحلية:</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                            <span class="block text-[10px] text-slate-400">ريال سعودي 🇸🇦</span>
+                            <span id="currency-sar" class="text-xs font-bold text-slate-800">375.00</span>
+                        </div>
+                        <div class="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                            <span class="block text-[10px] text-slate-400">جنيه مصري 🇪🇬</span>
+                            <span id="currency-egp" class="text-xs font-bold text-slate-800">4850.00</span>
+                        </div>
+                        <div class="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                            <span class="block text-[10px] text-slate-400">درهم إماراتي 🇦🇪</span>
+                            <span id="currency-aed" class="text-xs font-bold text-slate-800">367.30</span>
+                        </div>
+                        <div class="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
+                            <span class="block text-[10px] text-slate-400">دينار أردني 🇯🇴</span>
+                            <span id="currency-jod" class="text-xs font-bold text-slate-800">70.90</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- أداة 3: قائمة الأمتعة وحاجيات السفر (Checklist) -->
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="check-square" class="text-emerald-600 w-5 h-5"></i>
+                    تجهيز الأمتعة والحاجيات
+                </h3>
+                <div class="flex gap-2">
+                    <input type="text" id="checklist-input" placeholder="أضف غرضاً جديداً..." class="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none">
+                    <button onclick="addChecklistItem()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                </div>
+                <div class="space-y-2 max-h-[220px] overflow-y-auto pr-1" id="checklist-container">
+                    <label class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl cursor-pointer transition">
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" checked class="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500">
+                            <span class="text-xs text-slate-700">جواز السفر وتأشيرة الدخول</span>
+                        </div>
+                        <button onclick="removeChecklistItem(this)" class="text-slate-300 hover:text-red-500"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+                    </label>
+                    <label class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl cursor-pointer transition">
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" checked class="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500">
+                            <span class="text-xs text-slate-700">شواحن ومحوّلات الطاقة</span>
+                        </div>
+                        <button onclick="removeChecklistItem(this)" class="text-slate-300 hover:text-red-500"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+                    </label>
+                    <label class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl cursor-pointer transition">
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" class="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500">
+                            <span class="text-xs text-slate-700">الملابس المناسبة للطقس</span>
+                        </div>
+                        <button onclick="removeChecklistItem(this)" class="text-slate-300 hover:text-red-500"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+                    </label>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- نافذة تأكيد الحجز والبطاقات التفاعلية (Modal Pop-up) -->
+    <div id="booking-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-6 relative transform scale-95 transition-all duration-300" id="modal-card">
+            <button onclick="closeBookingModal()" class="absolute top-4 left-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-all">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl shadow-inner">
+                    <i data-lucide="check-circle" class="w-8 h-8"></i>
+                </div>
+                <h3 class="font-bold text-xl text-slate-800" id="modal-title">تأكيد حجز التذكرة</h3>
+                <p class="text-sm text-slate-500" id="modal-subtitle">يرجى مراجعة تفاصيل الحجز وتأكيد العملية لتسجيل تذكرتك الفورية</p>
+            </div>
+
+            <!-- نموذج تذكرة السفر / حجز الفندق الدائري الجوانب -->
+            <div class="bg-slate-50 rounded-2xl p-5 border border-dashed border-slate-200 space-y-4 text-sm relative">
+                <div class="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border-r border-slate-200 rounded-full"></div>
+                <div class="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border-l border-slate-200 rounded-full"></div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <span class="text-xs text-slate-400 block font-semibold">منفذ الانطلاق:</span>
+                        <strong class="text-slate-700" id="t-from">مطار المغادرة الرئيسي</strong>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block font-semibold">الوجهة السياحية:</span>
+                        <strong class="text-slate-700" id="t-to">البلد المستهدف</strong>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block font-semibold">تاريخ ووقت الرحلة:</span>
+                        <strong class="text-slate-700" id="t-time">08:00 صباحاً</strong>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block font-semibold">الدرجة / الخدمة:</span>
+                        <strong class="text-emerald-600 font-bold" id="t-type">سياحية مميزة</strong>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200/60 pt-3 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-slate-400 block font-semibold">تكلفة الرحلة الكلية:</span>
+                        <strong class="text-emerald-600 text-lg font-extrabold" id="t-price">$250</strong>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-slate-400 block font-semibold">حالة الحجز:</span>
+                        <span class="inline-block bg-amber-100 text-amber-800 text-[10px] px-2.5 py-0.5 rounded-full font-bold">بانتظار التأكيد الفوري</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button onclick="confirmBooking()" class="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-bold shadow-md shadow-emerald-200 hover:from-emerald-600 hover:to-teal-700 transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="credit-card" class="w-4 h-4"></i> تأكيد وحفظ وحجز التذكرة
+                </button>
+                <button onclick="closeBookingModal()" class="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-semibold transition-all">
+                    إلغاء
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- تذييل الصفحة -->
+    <footer class="bg-slate-900 text-slate-400 text-center py-6 border-t border-slate-800 text-sm mt-12">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p>© 2026 سافِر - جميع الحقوق محفوظة لرحلات الجيل القادم الذكية ونظام الملاحة GPS المتطور.</p>
+            <div class="flex gap-4">
+                <a href="#" class="hover:text-emerald-400 transition-all"><i class="fa-brands fa-square-facebook text-lg"></i></a>
+                <a href="#" class="hover:text-emerald-400 transition-all"><i class="fa-brands fa-instagram text-lg"></i></a>
+                <a href="#" class="hover:text-emerald-400 transition-all"><i class="fa-brands fa-square-x-twitter text-lg"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // قاعدة البيانات السياحية الضخمة والشاملة للبلدان المطلوبة
+        const database = {
+            "PAL": {
+                name: "فلسطين الأبية 🇵🇸",
+                flag: "🇵🇸",
+                coords: [31.7683, 35.2137], // القدس
+                zoom: 9,
+                airport: {
+                    name: "مطار القدس الدولي (قلنديا - مغلق حالياً، الوصول عبر معبر الكرامة جغرافياً)",
+                    coords: [31.8647, 35.2192]
+                },
+                landmarks: [
+                    {
+                        name: "المسجد الأقصى وقبة الصخرة المشرفة",
+                        desc: "أولى القبلتين وثاني المسجدين وثالث الحرمين الشريفين، تحفة معمارية روحانية فريدة تتوسط قلب القدس العتيقة وجدرانها العريقة.",
+                        history: "بني في فترات إسلامية متعاقبة، وتعد قبة الصخرة ذات القبة الذهبية والمثمنة الشكل واحدة من أقدم وأجمل المعالم الهندسية الإسلامية الخالدة.",
+                        coords: [31.7780, 35.2354],
+                        category: "historical",
+                        ticket: "دخول مجاني ومفتوح للمصلين",
+                        hours: "على مدار الساعة",
+                        bestTime: "طوال العام وخصوصاً شهر رمضان الأبرك",
+                        tip: "احرص على زيارة المصلى القبلي، والأقصى القديم ومصلى المرواني داخل ساحات المسجد الأقصى الفسيحة.",
+                        image: "https://images.unsplash.com/photo-1542856391-010fb87dcfed?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "كنيسة المهد في بيت لحم",
+                        desc: "من أقدم وأقدس الكنائس الأثرية في العالم، تقع في مدينة بيت لحم وتتميز بالهيبة المعمارية والأهمية التاريخية الاستثنائية.",
+                        history: "أسستها الإمبراطورة هيلانا في القرن الرابع الميلادي فوق الكهف الذي شهد ولادة السيد المسيح عليه السلام.",
+                        coords: [31.7043, 35.2076],
+                        category: "historical",
+                        ticket: "دخول مجاني",
+                        hours: "06:30 صباحاً - 07:30 مساءً",
+                        bestTime: "فصل الشتاء وأعياد الميلاد المجيدة",
+                        tip: "تأمل أعمال الفسيفساء الأرضية الرائعة التي تعود للعهد البيزنطي الأصيل.",
+                        image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "قصر هشام الأثري في أريحا",
+                        desc: "صرح أموي عتيق يقع في أقدم مدينة في التاريخ، ويشتهر بلوحة الفسيفساء الأيقونية (شجرة الحياة) الأكبر عالمياً.",
+                        history: "بني في عهد الخليفة الأموي هشام بن عبد الملك ليكون قصراً شتوياً فخماً وواحة راحة في وادي أريحا الخصيب.",
+                        coords: [31.8833, 35.4599],
+                        category: "cultural",
+                        ticket: "5 دولارات أمريكية",
+                        hours: "08:00 صباحاً - 05:00 مساءً",
+                        bestTime: "الخريف والشتاء للاستمتاع بجو أريحا الدافئ",
+                        tip: "لا تفوت الصعود لمشاهدة الفسيفساء من المنصة العلوية المخصصة لرؤية التفاصيل بوضوح.",
+                        image: "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=800&q=80"
+                    }
+                ],
+                tickets: [
+                    { id: "PAL-t1", from: "مطار الملكة علياء الدولي (عمان)", type: "حافلة VIP مكيفة ومجهزة", price: 55, time: "07:00 صباحاً", duration: "3.5 ساعات", available: 12, rating: "4.8" },
+                    { id: "PAL-t2", from: "مطار القاهرة الدولي (مصر)", type: "رحلة برية متكاملة ترحال سياحي", price: 110, time: "05:00 فجراً", duration: "8 ساعات", available: 5, rating: "4.7" }
+                ],
+                hotels: [
+                    { name: "فندق قصر جاسر التاريخي (بيت لحم)", desc: "فندق فخم بتصميم قصر فلسطيني أصيل يقدم إقامة ملكية عريقة.", price: 140, rating: "4.9", coords: [31.7142, 35.2012], tag: "فخم وتاريخي", amenities: ["مسبح خارجي", "منتجع صحي", "واي فاي سريع", "مطعم فلسطيني"] },
+                    { name: "فندق نوتردام جيروزاليم (القدس)", desc: "إطلالات بانورامية على أسوار البلدة القديمة العريقة وخدمة راقية جداً.", price: 165, rating: "4.8", coords: [31.7794, 35.2263], tag: "موقع استثنائي", amenities: ["تراس بإطلالة أسوار القدس", "إفطار مجاني", "قريب من المعالم"] }
+                ]
+            },
+            "KSA": {
+                name: "المملكة العربية السعودية 🇸🇦",
+                flag: "🇸🇦",
+                coords: [24.7136, 46.6753],
+                zoom: 5,
+                airport: {
+                    name: "مطار الملك خالد الدولي (الرياض)",
+                    coords: [24.9576, 46.6988]
+                },
+                landmarks: [
+                    {
+                        name: "المسجد الحرام والكعبة المشرفة (مكة المكرمة)",
+                        desc: "أقدس بقاع الأرض وقبلة المسلمين، حيث يطوف الملايين حول الكعبة المشرفة في أجواء روحانية مذهلة.",
+                        history: "بيت الله الحرام الذي بناه سيدنا إبراهيم وسيدنا إسماعيل عليهما السلام، وشهد توسعات تاريخية كبرى.",
+                        coords: [21.4225, 39.8262],
+                        category: "historical",
+                        ticket: "دخول مجاني لجميع الزوار والمسلمين",
+                        hours: "على مدار 24 ساعة",
+                        bestTime: "مواسم العمرة وشهر رمضان المبارك",
+                        tip: "ينصح باستعمال وسائل النقل العام والحافلات السريعة للوصول لساحات الحرم تفادياً للازدحام.",
+                        image: "https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "مدائن صالح والأماكن الأثرية بالعلا",
+                        desc: "موقع أثري عالمي مذهل منحوت في الصخور الرملية الكبرى يروي تاريخ الحضارة النبطية القديمة.",
+                        history: "المعروف تاريخياً بالحِجر، وهو أول موقع في السعودية ينضم لقائمة التراث العالمي لليونيسكو ويعود لقرون ما قبل الميلاد.",
+                        coords: [26.7915, 37.9535],
+                        category: "historical",
+                        ticket: "25 دولار أمريكي (تشمل الجولة)",
+                        hours: "09:00 صباحاً - 05:00 مساءً",
+                        bestTime: "من نوفمبر إلى مارس (الشتاء)",
+                        tip: "احجز رحلة لمشاهدة النجوم ليلاً في صحراء العلا الساحرة بعد إنهاء الجولة الأثرية.",
+                        image: "https://images.unsplash.com/photo-1628522964177-3e6e885d565a?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "منطقة الدرعية التاريخية وحي الطريف",
+                        desc: "مهد الدولة السعودية الأولى، تتميز بالمباني الطينية النجدية الكلاسيكية والمطاعم الفاخرة المطلة على وادي حنيفة.",
+                        history: "تأسست في القرن الخامس عشر الهجري وشهدت مؤخراً إعادة ترميم وتأهيل شاملة جعلتها مقصداً سياحياً عالمياً.",
+                        coords: [24.7356, 46.5744],
+                        category: "cultural",
+                        ticket: "10 دولارات أمريكية",
+                        hours: "10:00 صباحاً - 11:00 مساءً",
+                        bestTime: "فترات المساء للاستمتاع بالإضاءة الرائعة والطقس اللطيف",
+                        tip: "قم بزيارة البجيري المطل على حي الطريف لتناول العشاء الفاخر في الهواء الطلق.",
+                        image: "https://images.unsplash.com/photo-1589779137213-95ece37b69c2?auto=format&fit=crop&w=800&q=80"
+                    }
+                ],
+                tickets: [
+                    { id: "KSA-t1", from: "مطار القاهرة الدولي (مصر)", type: "الخطوط السعودية (طيران مباشر)", price: 230, time: "10:30 صباحاً", duration: "ساعتان", available: 15, rating: "4.9" },
+                    { id: "KSA-t2", from: "مطار دبي الدولي (الإمارات)", type: "طيران طيران أديل (اقتصادي)", price: 95, time: "04:15 بعد الظهر", duration: "ساعة و45 دقيقة", available: 28, rating: "4.5" }
+                ],
+                hotels: [
+                    { name: "فندق فيرمونت برج الساعة (مكة المكرمة)", desc: "إطلالة بانورامية مباشرة وهيبة لا توصف على الكعبة المشرفة والمسجد الحرام.", price: 340, rating: "4.9", coords: [21.4181, 39.8264], tag: "إطلالة كعبة فاخرة", amenities: ["سماعات نقل الأذان الفورية", "مركز تسوق ضخم ملاصق", "سبا فاخر"] },
+                    { name: "فندق فورسيزونز برج المملكة (الرياض)", desc: "يقبع في أعلى الأبراج بالرياض ويوفر إطلالات عصرية ومستوى خدمة عالمي.", price: 420, rating: "4.8", coords: [24.7118, 46.6743], tag: "عصري لرجال الأعمال", amenities: ["مسبح داخلي دافئ", "مركز للياقة البدنية", "إطلالة أفق الرياض"] }
+                ]
+            },
+            "EGY": {
+                name: "جمهورية مصر العربية 🇪🇬",
+                flag: "🇪🇬",
+                coords: [30.0444, 31.2357],
+                zoom: 6,
+                airport: {
+                    name: "مطار القاهرة الدولي",
+                    coords: [30.1219, 31.4056]
+                },
+                landmarks: [
+                    {
+                        name: "أهرامات الجيزة وأبو الهول",
+                        desc: "إحدى عجائب الدنيا السبع القديمة الخالدة، صروح هندسية جبارة تشهد على عمق وجلال الحضارة المصرية القديمة.",
+                        history: "بنيت كقبور للفراعنة خوفو، خفرع، ومنقرع في عهد الأسرة الرابعة قبل أكثر من 4500 عام.",
+                        coords: [29.9792, 31.1342],
+                        category: "historical",
+                        ticket: "12 دولار أمريكي",
+                        hours: "08:00 صباحاً - 05:00 مساءً",
+                        bestTime: "فصل الشتاء والربيع لطقس معتدل",
+                        tip: "قم بتجربة ركوب الجمال والخيل حول الأهرامات وقت الغروب للحصول على صور تذكارية خيالية.",
+                        image: "https://images.unsplash.com/photo-1503177119275-0aa32b31d468?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "معابد الأقصر والكرنك",
+                        desc: "أكبر دور عبادة سياحي ومفتوح في التاريخ القديم، يضم مسلات عملاقة وأعمدة مزخرفة تحكي تاريخ طيبة القديمة.",
+                        history: "بنيت وعُدلت على امتداد أكثر من 2000 عام بمشاركة ملوك فراعنة بارزين مثل رمسيس الثاني وتوت عنخ آمون.",
+                        coords: [25.7188, 32.6573],
+                        category: "historical",
+                        ticket: "15 دولار أمريكي",
+                        hours: "06:00 صباحاً - 08:00 مساءً",
+                        bestTime: "الشتاء (ديسمبر إلى فبراير)",
+                        tip: "احضر عرض الصوت والضوء الساحر ليلاً في معبد الكرنك لتستمتع بالقصص التاريخية بأسلوب مشوق.",
+                        image: "https://images.unsplash.com/photo-1568502636224-3405096156e5?auto=format&fit=crop&w=800&q=80"
+                    }
+                ],
+                tickets: [
+                    { id: "EGY-t1", from: "مطار جدة الدولي (السعودية)", type: "مصر للطيران (رحلة ممتازة)", price: 180, time: "13:00 ظهرًا", duration: "ساعتان", available: 10, rating: "4.7" },
+                    { id: "EGY-t2", from: "مطار إسطنبول الدولي (تركيا)", type: "الخطوط التركية (رحلة ممتعة)", price: 290, time: "09:15 صباحاً", duration: "ساعتان ونصف", available: 8, rating: "4.8" }
+                ],
+                hotels: [
+                    { name: "فندق ماريوت مينا هاوس (القاهرة)", desc: "قصر ملكي سابق يطل مباشرة على أهرامات الجيزة بحدائق خلابة ممتدة.", price: 260, rating: "4.9", coords: [29.9845, 31.1278], tag: "تاريخي وإطلالة هرمية", amenities: ["مسبح دافئ خارجي", "تراس مطعم الهرم", "حدائق خضراء شاسعة"] },
+                    { name: "فندق شتايجنبرجر نايل بالاس (الأقصر)", desc: "موقع مباشر وخلاب على ضفاف نهر النيل الخالد لراحة نفسية مثالية.", price: 95, rating: "4.7", coords: [25.6881, 32.6288], tag: "إطلالة نيلية هادئة", amenities: ["مسبح يطل على النيل", "قارب شراعي خاص للنزلاء", "منتجع متكامل"] }
+                ]
+            },
+            "UAE": {
+                name: "الإمارات العربية المتحدة 🇦🇪",
+                flag: "🇦🇪",
+                coords: [25.2048, 55.2708],
+                zoom: 7,
+                airport: {
+                    name: "مطار دبي الدولي (DXB)",
+                    coords: [25.2532, 55.3657]
+                },
+                landmarks: [
+                    {
+                        name: "برج خليفة ونافورة دبي الراقصة",
+                        desc: "أطول برج بناه الإنسان في التاريخ، يعانق السحاب ويشرف على وسط مدينة دبي ونافورتها الاستعراضية الرائعة.",
+                        history: "افتتح في عام 2010 بارتفاع مذهل يصل إلى 828 متراً، ليكون رمزاً عالمياً للتطور والطموح الهندسي الإماراتي.",
+                        coords: [25.1972, 55.2744],
+                        category: "modern",
+                        ticket: "45 دولار أمريكي (الصعود للمنصة)",
+                        hours: "08:30 صباحاً - 11:00 مساءً",
+                        bestTime: "وقت الغروب والمساء لمشاهدة عرض النافورة",
+                        tip: "ينصح بشراء تذكرة الصعود للمنصة مسبقاً عبر الإنترنت لتفادي ساعات الانتظار والازدحام.",
+                        image: "https://images.unsplash.com/photo-1546412414-e18852611990?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "جامع الشيخ زايد الكبير (أبوظبي)",
+                        desc: "صرح إسلامي مذهل يجمع بين الطرازات المعمارية الإسلامية المختلفة، مكسو بالرخام الأبيض الناصع والقباب المزخرفة.",
+                        history: "بني بأمر من الشيخ زايد بن سلطان آل نهيان ليكون رمزاً للتسامح والسلام، وافتتح للزوار في عام 2007.",
+                        coords: [24.4122, 54.4749],
+                        category: "cultural",
+                        ticket: "دخول مجاني بالكامل للجميع",
+                        hours: "09:00 صباحاً - 10:00 مساءً",
+                        bestTime: "قبل غروب الشمس مباشرة لالتقاط صور الانعكاس الرائعة",
+                        tip: "احرص على ارتداء الملابس المحتشمة والمناسبة لدخول الأماكن المقدسة والتقيد بتعليمات المسجد الأنيقة.",
+                        image: "https://images.unsplash.com/photo-1549488344-1f9b8d2bd1f3?auto=format&fit=crop&w=800&q=80"
+                    }
+                ],
+                tickets: [
+                    { id: "UAE-t1", from: "مطار الملك خالد الدولي (الرياض)", type: "طيران طيران الإمارات (خدمة ملكية)", price: 160, time: "09:00 صباحاً", duration: "ساعة ونصف", available: 14, rating: "4.9" },
+                    { id: "UAE-t2", from: "مطار لندن هيثرو (بريطانيا)", type: "طيران الخطوط البريطانية (رحلة دولية)", price: 540, time: "22:00 مساءً", duration: "7 ساعات", available: 6, rating: "4.8" }
+                ],
+                hotels: [
+                    { name: "فندق أتلانتس ذا بالم (دبي)", desc: "منتجع سياحي عالمي على جزيرة النخلة يضم مدن مائية وأحواض أسماك مذهلة.", price: 380, rating: "4.9", coords: [25.1304, 55.1171], tag: "ترفيهي عائلي فاخر", amenities: ["دخول مجاني للمدينة المائية", "شاطئ خاص ممتد", "مطاعم حائزة على جوائز"] },
+                    { name: "فندق العنوان وسط المدينة (دبي)", desc: "إطلالة مباشرة خلابة وساحرة على برج خليفة والنوافير الراقصة الفخمة.", price: 290, rating: "4.8", coords: [25.1952, 55.2783], tag: "موقع قلب دبي النابض", amenities: ["مسبح لا متناهي مواجه للبرج", "سبا فاخر", "اتصال مباشر بدبي مول"] }
+                ]
+            },
+            "JOR": {
+                name: "المملكة الأردنية الهاشمية 🇯🇴",
+                flag: "🇯🇴",
+                coords: [30.3285, 35.4444],
+                zoom: 7,
+                airport: {
+                    name: "مطار الملكة علياء الدولي (عمان)",
+                    coords: [31.7226, 35.9933]
+                },
+                landmarks: [
+                    {
+                        name: "مدينة البتراء الأثرية الوردية",
+                        desc: "إحدى عجائب الدنيا السبع الجديدة، مدينة كاملة منحوتة في الصخور الجبلية الوردية الشاهقة.",
+                        history: "شيدها الأنباط العرب قبل أكثر من ألفي عام كعاصمة تجارية حصينة تتوسط الأودية والمسارات الجبلية الضيقة.",
+                        coords: [30.3285, 35.4444],
+                        category: "historical",
+                        ticket: "70 دولار أمريكي",
+                        hours: "06:00 صباحاً - 06:00 مساءً",
+                        bestTime: "الربيع والخريف لجمال الجو وإمكانية المشي الطويل",
+                        tip: "ينصح بارتداء حذاء مريح جداً للمشي نظراً لكون مسارات المشي داخل المدينة الأثرية تتجاوز 10 كيلومترات.",
+                        image: "https://images.unsplash.com/photo-1541432901042-2d8bd64b4a9b?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "صحراء وادي رم الطبيعية (وادي القمر)",
+                        desc: "صحراء ذات تشكيلات صخرية حمراء فريدة تشعرك وكأنك تتجول فوق كوكب المريخ الساحر والغامض.",
+                        history: "شهدت تصوير كبرى أفلام هوليوود العالمية وتتميز ببيئتها البدوية الدافئة ومخيماتها الفاخرة ذات القبب الزجاجية.",
+                        coords: [29.5735, 35.4214],
+                        category: "historical",
+                        ticket: "7 دولارات أمريكية",
+                        hours: "على مدار الساعة",
+                        bestTime: "أكتوبر ونوفمبر لمشاهدة روعة السماء المرصعة بالنجوم",
+                        tip: "احرص على تجربة جولة سيارات الدفع الرباعي وقت غروب الشمس وتناول وجبة الزرب البدوية التقليدية.",
+                        image: "https://images.unsplash.com/photo-1585551897231-6e01bf366531?auto=format&fit=crop&w=800&q=80"
+                    }
+                ],
+                tickets: [
+                    { id: "JOR-t1", from: "مطار القاهرة الدولي (مصر)", type: "طيران الملكية الأردنية (مباشر ومريح)", price: 210, time: "11:30 صباحاً", duration: "ساعة وثلث", available: 16, rating: "4.7" },
+                    { id: "JOR-t2", from: "مطار الملك خالد الدولي (الرياض)", type: "طيران طيران ناس (اقتصادي سريع)", price: 115, time: "20:00 مساءً", duration: "ساعتان", available: 21, rating: "4.6" }
+                ],
+                hotels: [
+                    { name: "منتجع كمبينسكي عشتار البحر الميت", desc: "أرقى المنتجعات الطبية والعلاجية في العالم يطل مباشرة على أخفض بقعة جغرافية.", price: 250, rating: "4.9", coords: [31.7161, 35.5898], tag: "منتجع فخم ومريح للأعصاب", amenities: ["شاطئ طيني علاجي خاص", "9 حمامات سباحة عملاقة", "سبا ملكي ممتاز"] },
+                    { name: "فندق موفنبيك البتراء", desc: "يقع مباشرة عند البوابة السياحية ومدخل البتراء الأثرية لتسهيل حركتك وزيارتك.", price: 175, rating: "4.8", coords: [30.3255, 35.4678], tag: "موقع استثنائي عند المعلم", amenities: ["تراس على السطح بإطلالة جبلية", "شاي بدوي دافئ مجاني", "مأكولات شرقية وغربية"] }
+                ]
+            },
+            "MAR": {
+                name: "المملكة المغربية 🇲🇦",
+                flag: "🇲🇦",
+                coords: [31.6295, -7.9811],
+                zoom: 6,
+                airport: {
+                    name: "مطار مراكش المنارة الدولي",
+                    coords: [31.6069, -8.0363]
+                },
+                landmarks: [
+                    {
+                        name: "ساحة جامع الفناء والبلدة العتيقة (مراقش)",
+                        desc: "قلب مراكش النابض المليء بمروضي الأفاعي، رواة القصص، الموسيقيين، وبسطات الطعام المغربي الشهي.",
+                        history: "تأسست الساحة مع بناء المدينة في القرن الحادي عشر كمركز حيوي للتجارة، ومصنفة كتراث شفهي عالمي لليونيسكو.",
+                        coords: [31.6263, -7.9891],
+                        category: "cultural",
+                        ticket: "دخول مجاني ومفتوح للجميع",
+                        hours: "من الظهر وحتى منتصف الليل",
+                        bestTime: "أشهر الربيع والخريف للاستمتاع بالأجواء اللطيفة",
+                        tip: "اصعد إلى تراس أحد المقاهي المطلة على الساحة وقت الغروب لتناول الشاي المغربي المنعش بالنعناع.",
+                        image: "https://images.unsplash.com/photo-1539650116574-8efeb43e2750?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "مدينة شفشاون الزرقاء (الجوهرة الزرقاء)",
+                        desc: "مدينة جبلية خلابة هادئة، تتميز بأزقتها ومبانيها المطلية بالكامل بظلال اللون الأزرق الساحر.",
+                        history: "تأسست في عام 1471 كقلعة لحماية المنطقة، وبدأ طلاء أحيائها باللون الأزرق كرمز للسلام والهدوء الروحي والجمال السكني.",
+                        coords: [35.1688, -5.2636],
+                        category: "cultural",
+                        ticket: "دخول حر ومجاني",
+                        hours: "على مدار الساعة",
+                        bestTime: "من مايو إلى سبتمبر",
+                        tip: "تأمل منبع رأس الماء الجبلي الساحر وتجول في أزقة حي السويقة لالتقاط صور نادرة ومذهلة.",
+                        image: "https://images.unsplash.com/photo-1489749798305-4fea3ae63d43?auto=format&fit=crop&w=800&q=80"
+                    }
+                ],
+                tickets: [
+                    { id: "MAR-t1", from: "مطار باريس شارل ديغول (فرنسا)", type: "الخطوط الملكية المغربية (مباشرة فخمة)", price: 190, time: "14:15 بعد الظهر", duration: "3 ساعات", available: 9, rating: "4.8" },
+                    { id: "MAR-t2", from: "مطار مدريد باراخاس (إسبانيا)", type: "طيران العربية المغرب (اقتصادي مميز)", price: 75, time: "08:30 صباحاً", duration: "ساعة و45 دقيقة", available: 18, rating: "4.5" }
+                ],
+                hotels: [
+                    { name: "فندق المأمونية التاريخي (مراكش)", desc: "واحد من أفخم وأعرق الفنادق والرياضات الأثرية في العالم بتصميم أندلسي ملكي مبهر.", price: 480, rating: "4.9", coords: [31.6214, -7.9943], tag: "أسطوري وريادي بالجمال", amenities: ["حدائق تاريخية فسيحة", "سبا مغربي تقليدي ممتاز", "مسابح داخلية وخارجية دافئة"] },
+                    { name: "فندق رياض الأندلس (فاس القديمة)", desc: "رياض مغربي تقليدي دافئ يقدم الضيافة والمأكولات التراثية بوسط فاس العتيقة.", price: 110, rating: "4.7", coords: [34.0634, -4.9733], tag: "تراثي ودافئ الطراز", amenities: ["فناء داخلي بنوافير رخامية", "إفطار مغربي غني جداً", "قريب من القرويين"] }
+                ]
+            },
+            "TUR": {
+                name: "الجمهورية التركية 🇹🇷",
+                flag: "🇹🇷",
+                coords: [41.0082, 28.9784],
+                zoom: 6,
+                airport: {
+                    name: "مطار إسطنبول الدولي (IST)",
+                    coords: [41.2752, 28.7292]
+                },
+                landmarks: [
+                    {
+                        name: "مسجد آيا صوفيا والمسجد الأزرق (إسطنبول)",
+                        desc: "أبرز المعالم الإسلامية والبيزنطية التاريخية العتيقة، يقفان بهيبة متقابلين في ساحة السلطان أحمد الخلابة.",
+                        history: "بنيت آيا صوفيا ككاتدرائية في عام 537م، وتحولت لمسجد فخم بعهد الفاتح، لتمثل صرحاً معمارياً وحضارياً ممتداً.",
+                        coords: [41.0086, 28.9799],
+                        category: "historical",
+                        ticket: "30 دولار أمريكي للقسم السياحي الأثري",
+                        hours: "09:00 صباحاً - 07:00 مساءً",
+                        bestTime: "أشهر الربيع (أبريل ومايو) لمهرجان التوليب المذهل",
+                        tip: "ينصح بالزيارة في الصباح الباكر وتجنب أوقات الصلوات الرسمية لتجربة استكشاف هادئة وكاملة.",
+                        image: "https://images.unsplash.com/photo-1541432901042-2d8bd64b4a9b?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "مداخن الجنيات والمناطيد في كابادوكيا",
+                        desc: "وديان طبيعية ذات تكوينات صخرية غريبة تشبه الفطر، حيث تطير مئات المناطيد الملونة مع نسمات الصباح الباكر.",
+                        history: "تكونت بفعل ثورات بركانية قديمة وعوامل تعرية امتدت لملايين السنين، واتخذها المسيحيون الأوائل كبيوت آمنة منحوتة في الصخر.",
+                        coords: [38.6431, 34.8289],
+                        category: "historical",
+                        ticket: "180 دولار أمريكي (تشمل رحلة المنطاد الهوائي)",
+                        hours: "رحلات المناطيد تنطلق مع شروق الشمس فجراً",
+                        bestTime: "من سبتمبر إلى نوفمبر لجو صحو وهادئ ومناسب للمناطيد",
+                        tip: "قم بحجز رحلة المنطاد وتأكيدها قبل موعدك بيومين نظراً لاعتماد الطيران كلياً على حالة الرياح وحرارة الجو.",
+                        image: "https://images.unsplash.com/photo-1507608869274-d3177c8bb4c7?auto=format&fit=crop&w=800&q=80"
+                    }
+                ],
+                tickets: [
+                    { id: "TUR-t1", from: "مطار الملكة علياء (عمان)", type: "الخطوط التركية (رحلة مريحة جداً)", price: 260, time: "12:00 ظهراً", duration: "ساعتان ونصف", available: 11, rating: "4.9" },
+                    { id: "TUR-t2", from: "مطار روما فيوميتشينو (إيطاليا)", type: "طيران بيغاسوس (اقتصادي سريع)", price: 110, time: "18:45 مساءً", duration: "ساعتان", available: 20, rating: "4.5" }
+                ],
+                hotels: [
+                    { name: "فندق فورسيزونز إسطنبول على البوسفور", desc: "قصر عثماني فاخر مرمم من القرن التاسع عشر يقع مباشرة على ضفاف مضيق البوسفور.", price: 440, rating: "4.9", coords: [41.0441, 29.0222], tag: "قصر عثماني فخم", amenities: ["رصيف يخوت خاص بالنزلاء", "مسبح خارجي دافئ ومطل", "مطعم مأكولات تركية ملكية"] },
+                    { name: "فندق ميوزيم كابادوكيا الأثري", desc: "عش تجربة النوم التاريخية الفاخرة داخل غرف كهفية أثرية حقيقية مرممة.", price: 310, rating: "4.8", coords: [38.6315, 34.8021], tag: "تجربة كهوف أثرية فريدة", amenities: ["مسبح حراري خارجي دافئ", "إطلالة بانورامية على المناطيد", "حدائق تراثية"] }
+                ]
+            },
+            "FRA": {
+                name: "جمهورية فرنسا 🇫🇷",
+                flag: "🇫🇷",
+                coords: [48.8566, 2.3522],
+                zoom: 6,
+                airport: {
+                    name: "مطار باريس شارل ديغول (CDG)",
+                    coords: [49.0097, 2.5479]
+                },
+                landmarks: [
+                    {
+                        name: "برج إيفل وحدائق الشانزليزيه (باريس)",
+                        desc: "الرمز الوطني الفرنسي الأبرز، صرح حديدي شاهق يشرف بجماله وإضاءته البراقة على العاصمة باريس الرومانسية.",
+                        history: "شيد من قبل غوستاف إيفل في عام 1889 بمناسبة المعرض العالمي، واعتبر حينها إنجازاً تكنولوجياً جباراً.",
+                        coords: [48.8584, 2.2945],
+                        category: "modern",
+                        ticket: "28 دولار أمريكي (تذكرة صعود المصعد)",
+                        hours: "09:30 صباحاً - 11:45 مساءً",
+                        bestTime: "فصل الربيع وبدايات الخريف لأجواء مشمسة ومناسبة للمشي",
+                        tip: "استمتع بمشاهدة البرج وهو يتلألأ بالإضاءة البراقة لمدة خمس دقائق على رأس كل ساعة بعد حلول الظلام.",
+                        image: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "متحف اللوفر العريق",
+                        desc: "أكبر متحف للفنون في العالم وكنز سياحي يضم لوحة الموناليزا الشهيرة والآلاف من المقتنيات الفرعونية واليونانية والشرقية.",
+                        history: "قصر ملكي عتيق يرجع تاريخ تأسيسه للقرن الثاني عشر، تحول لمتحف عام بعهد الثورة الفرنسية في عام 1793م.",
+                        coords: [48.8606, 2.3376],
+                        category: "cultural",
+                        ticket: "22 دولار أمريكي",
+                        hours: "09:00 صباحاً - 06:00 مساءً (مغلق أيام الثلاثاء)",
+                        bestTime: "خلال أيام الأسبوع وتجنب عطلة نهاية الأسبوع المزدحمة",
+                        tip: "ينصح بالدخول من ممر مول الكاروسيل التجاري لتجنب طوابير الانتظار الطويلة تحت الهرم الزجاجي الرئيسي.",
+                        image: "https://images.unsplash.com/photo-1543007630-9710e4a00a20?auto=format&fit=crop&w=800&q=80"
+                    }
+                ],
+                tickets: [
+                    { id: "FRA-t1", from: "مطار القاهرة الدولي (مصر)", type: "طيران إير فرانس (مباشر وممتع)", price: 380, time: "10:00 صباحاً", duration: "4.5 ساعات", available: 8, rating: "4.8" },
+                    { id: "FRA-t2", from: "مطار دبي الدولي (الإمارات)", type: "طيران الإمارات (رحلة عملاقة A380)", price: 620, time: "02:30 بعد منتصف الليل", duration: "7 ساعات", available: 12, rating: "4.9" }
+                ],
+                hotels: [
+                    { name: "فندق ريتز باريس الأسطوري", desc: "أيقونة الضيافة الباريسية الفاخرة في ساحة فاندوم التاريخية الساحرة.", price: 790, rating: "4.9", coords: [48.8681, 2.3294], tag: "أسطوري كلاسيكي فاخر جداً", amenities: ["بركة سباحة ليموزين داخلية", "مطعم حائز على نجمة ميشلان", "سبا شانيل المتميز"] },
+                    { name: "فندق بولمان برج إيفل", desc: "يقع على بعد خطوات بسيطة من برج إيفل ويوفر إطلالات ممتازة من شرفاته.", price: 320, rating: "4.7", coords: [48.8556, 2.2933], tag: "إطلالة مباشرة على البرج", amenities: ["صالة للياقة البدنية حديثة", "شرفات بإطلالات البرج", "موقع حيوي وسياحي ممتاز"] }
+                ]
+            },
+            "JPN": {
+                name: "دولة اليابان 🇯🇵",
+                flag: "🇯🇵",
+                coords: [35.6762, 139.6503],
+                zoom: 6,
+                airport: {
+                    name: "مطار طوكيو هانيدا الدولي (HND)",
+                    coords: [35.5494, 139.7798]
+                },
+                landmarks: [
+                    {
+                        name: "جبل فوجي الشهير وبحيرة كاواغوتشيكو",
+                        desc: "أعلى قمة بركانية وجبل مقدس في اليابان، يتميز بقمته الثلجية المتناظرة الخلابة والبحيرات الخمس المحيطة به.",
+                        history: "رمز وطني وثقافي وروحي لليابان عبر العصور، مسجل كتراث ثقافي عالمي لليونيسكو ويستقطب ملايين المتسلقين والسياح.",
+                        coords: [35.3606, 138.7274],
+                        category: "historical",
+                        ticket: "دخول مجاني (رسوم المسارات للمتسلقين فقط)",
+                        hours: "مفتوح على مدار الساعة لمشاهدة المعلم الطبيعي",
+                        bestTime: "فصل الربيع لمشاهدة الجبل خلف أشجار الكرز (الساكورا)",
+                        tip: "قم بالصعود لمرصد حديقة أراكورا سينجن لمشاهدة اللوحة الأسطورية للجبل وبجانبه المعبد ذو الطوابق الخمسة.",
+                        image: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=80"
+                    },
+                    {
+                        name: "منطقة أسابوسا ومعبد سينسوجي (طوكيو)",
+                        desc: "أقدم وأشهر معبد بوذي تراثي في طوكيو، يضم بوابة الرعد الضخمة المزينة بفانوس أحمر عملاق وسوق ناكاميسي العتيق.",
+                        history: "تأسس في عام 645 ميلادي، ليمثل وجهة ثقافية وروحية كبرى صمدت أمام تحديات الزمن والحروب لتروي قصة تاريخ طوكيو القديم.",
+                        coords: [35.7148, 139.7967],
+                        category: "cultural",
+                        ticket: "دخول مجاني بالكامل لجميع الساحات والمعبد",
+                        hours: "06:00 صباحاً - 05:00 مساءً",
+                        bestTime: "فصل الخريف أو في المساء للاستمتاع بالإضاءة الفانوسية الهادئة والجميلة",
+                        tip: "قم بتجربة حلوى النينغيو-ياكي الساخنة الطازجة أثناء تجولك في زوايا شارع ناكاميسي التقليدي المزدحم والممتع.",
+                        image: "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=800&q=80"
+                    }
+                ],
+                tickets: [
+                    { id: "JPN-t1", from: "مطار دبي الدولي (الإمارات)", type: "طيران جابان إيرلاينز (عالمي راقٍ)", price: 780, time: "03:15 فجراً", duration: "10 ساعات", available: 5, rating: "4.9" },
+                    { id: "JPN-t2", from: "مطار روما فيوميتشينو (إيطاليا)", type: "طيران الخطوط الإيطالية (رحلة ترانزيت)", price: 890, time: "23:45 مساءً", duration: "13 ساعة", available: 4, rating: "4.8" }
+                ],
+                hotels: [
+                    { name: "فندق بالاس طوكيو (طوكيو)", desc: "فندق فاخر وعصري مبهر يطل مباشرة على حدائق القصر الإمبراطوري الهادئة الساحرة.", price: 540, rating: "4.9", coords: [35.6845, 139.7612], tag: "إقامة ملوكية فاخرة", amenities: ["سبا إيفيان فريد من نوعه", "7 مطاعم راقية متنوعة", "إطلالات حدائق القصر"] },
+                    { name: "منتجع هوشينويا كوتو التراثي (كيوتو)", desc: "منتجع ياباني تقليدي رائع يقع على ضفاف نهر أوي في وسط غابات أراشيياما الخلابة الساحرة.", price: 460, rating: "4.9", coords: [35.0135, 135.6698], tag: "ريوكان ياباني تقليدي", amenities: ["الوصول عبر قارب سياحي خاص", "أطعمة يابانية فاخرة ومعدة يدوياً", "جلسات تأمل طبيعية"] }
+                ]
+            }
+        };
+
+        // إدارة الحالة النشطة
+        let currentCountry = "PAL";
+        let activeCategory = "all";
+        let map = null;
+        let markers = [];
+        let polylines = [];
+        let currentDetailSpot = null;
+        let userLocation = null;
+        let userMarker = null;
+
+        // تهيئة الخريطة الجغرافية
+        function initMap() {
+            try {
+                if (typeof L !== 'undefined') {
+                    map = L.map('map', {
+                        scrollWheelZoom: false
+                    }).setView(database[currentCountry].coords, database[currentCountry].zoom);
+                    
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }).addTo(map);
+
+                    map.on('focus', () => map.scrollWheelZoom.enable());
+                    map.on('blur', () => map.scrollWheelZoom.disable());
+                }
+            } catch (e) {
+                console.error("تعذر تحميل خريطة Leaflet الجغرافية: ", e);
+            }
+        }
+
+        // تحديث الملاحة ومعالم الـ GPS على الخريطة المباشرة
+        function updateMapAndNavigation() {
+            if (!map) return;
+
+            // إزالة جميع المؤشرات القديمة والمسارات المرسومة
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            polylines.forEach(p => map.removeLayer(p));
+            polylines = [];
+
+            const countryData = database[currentCountry];
+            map.setView(countryData.coords, countryData.zoom);
+
+            // 1. تحديد موقع المطار / نقطة الانطلاق الجوية (أيقونة برتقالية طيران)
+            const airportIcon = L.divIcon({
+                html: `<div class="bg-amber-500 text-white w-9 h-9 rounded-full flex items-center justify-center border-2 border-white shadow-lg text-sm"><i class="fa-solid fa-plane"></i></div>`,
+                className: '',
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
+            });
+            const airportMarker = L.marker(countryData.airport.coords, { icon: airportIcon })
+                .bindPopup(`<div class="font-sans text-right"><strong class="text-amber-700 text-xs flex items-center gap-1"><i class="fa-solid fa-plane"></i> نقطة انطلاق الرحلات:</strong><p class="text-[11px] text-slate-600 mt-1">${countryData.airport.name}</p></div>`)
+                .addTo(map);
+            markers.push(airportMarker);
+
+            // 2. رسم معالم السفر السياحية (أيقونات زرقاء عريقة)
+            countryData.landmarks.forEach(landmark => {
+                if (activeCategory !== 'all' && landmark.category !== activeCategory) return;
+
+                const landmarkIcon = L.divIcon({
+                    html: `<div class="bg-blue-600 text-white w-9 h-9 rounded-full flex items-center justify-center border-2 border-white shadow-lg text-xs font-bold"><i class="fa-solid fa-landmark"></i></div>`,
+                    className: '',
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 18]
+                });
+                const marker = L.marker(landmark.coords, { icon: landmarkIcon })
+                    .bindPopup(`<div class="font-sans text-right"><strong class="text-blue-700 text-xs">🏛️ ${landmark.name}</strong><p class="text-[10px] text-slate-500 mt-1 leading-relaxed">${landmark.desc.substring(0, 70)}...</p><button onclick="showSpotDetailsByName('${landmark.name}')" class="text-[10px] text-emerald-600 font-bold mt-1.5 hover:underline block">استكشف التفاصيل الكاملة</button></div>`)
+                    .addTo(map);
+                markers.push(marker);
+
+                // رسم خط مسار طيران / تنقل مرجعي من المطار إلى المعلم
+                const line = L.polyline([countryData.airport.coords, landmark.coords], {
+                    color: '#2563eb',
+                    weight: 1.5,
+                    dashArray: '6, 8',
+                    opacity: 0.7
+                }).addTo(map);
+                polylines.push(line);
+            });
+
+            // 3. رسم الفنادق المناسبة الموصى بها (أيقونات خضراء سكنية)
+            countryData.hotels.forEach(hotel => {
+                const hotelIcon = L.divIcon({
+                    html: `<div class="bg-emerald-600 text-white w-9 h-9 rounded-full flex items-center justify-center border-2 border-white shadow-lg text-xs"><i class="fa-solid fa-hotel"></i></div>`,
+                    className: '',
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 18]
+                });
+                const marker = L.marker(hotel.coords, { icon: hotelIcon })
+                    .bindPopup(`<div class="font-sans text-right"><strong class="text-emerald-700 text-xs">🏨 ${hotel.name}</strong><p class="text-[10px] text-slate-500 mt-1">متوسط التكلفة: <b class="text-emerald-600">$${hotel.price}</b> / ليلة</p></div>`)
+                    .addTo(map);
+                markers.push(marker);
+
+                // رسم خط تواصل ملاحة من المطار إلى الفندق الموصى به
+                const line = L.polyline([countryData.airport.coords, hotel.coords], {
+                    color: '#10b981',
+                    weight: 1.5,
+                    dashArray: '4, 4',
+                    opacity: 0.6
+                }).addTo(map);
+                polylines.push(line);
+            });
+
+            // 4. رسم موقع المستخدم عبر الـ GPS في حال تحديده
+            if (userLocation) {
+                const userIcon = L.divIcon({
+                    className: 'custom-pulse-marker',
+                    html: '<div class="w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-xl"></div>',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+                userMarker = L.marker(userLocation, { icon: userIcon })
+                    .bindPopup('<div class="font-sans text-right text-xs font-bold text-slate-700">📌 موقعك الحالي المباشر</div>')
+                    .addTo(map);
+                markers.push(userMarker);
+            }
+        }
+
+        // التركيز على معلم معين على الخريطة
+        function focusOnCoordinates(lat, lng, label) {
+            if (!map) return;
+            map.setView([lat, lng], 13);
+            
+            // فتح البوب أب للموقع المحدد
+            markers.forEach(m => {
+                const latLng = m.getLatLng();
+                if (Math.abs(latLng.lat - lat) < 0.001 && Math.abs(latLng.lng - lng) < 0.001) {
+                    m.openPopup();
+                }
+            });
+
+            document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // إعادة ضبط وتوسيع زاوية رؤية الخريطة
+        function resetMapView() {
+            if (!map) return;
+            const countryData = database[currentCountry];
+            map.setView(countryData.coords, countryData.zoom);
+        }
+
+        // تحميل وتحديث بيانات الدولة المحددة
+        function loadDestinations() {
+            const selectEl = document.getElementById('country-select');
+            currentCountry = selectEl.value;
+
+            // تحديث اختيار التخطيط التلقائي ليطابق اختيار المستخدم
+            document.getElementById('planner-country').value = currentCountry;
+
+            // إخفاء كارد التفاصيل القديم لحين طلب المستخدم
+            document.getElementById('spot-detail-card').classList.add('hidden');
+
+            renderDynamicUI();
+            updateMapAndNavigation();
+        }
+
+        // فلترة المعالم السياحية حسب التصنيف المفصل
+        function filterCategory(cat) {
+            activeCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.remove('bg-emerald-600', 'text-white', 'shadow-sm');
+                btn.classList.add('bg-slate-50', 'text-slate-600', 'border-slate-100');
+            });
+            const activeBtn = document.getElementById(`cat-${cat}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-slate-50', 'text-slate-600', 'border-slate-100');
+                activeBtn.classList.add('bg-emerald-600', 'text-white', 'shadow-sm');
+            }
+
+            renderDynamicUI();
+            updateMapAndNavigation();
+        }
+
+        // توليد وبناء واجهة المستخدم ديناميكياً
+        function renderDynamicUI() {
+            const countryData = database[currentCountry];
+
+            // 1. بناء قائمة بطاقات المعالم السياحية الفخمة
+            const spotsListEl = document.getElementById('spots-cards-list');
+            spotsListEl.innerHTML = '';
+            
+            const filteredLandmarks = countryData.landmarks.filter(l => activeCategory === 'all' || l.category === activeCategory);
+            document.getElementById('list-spots-count').innerText = `${filteredLandmarks.length} معالم متوفرة`;
+
+            filteredLandmarks.forEach(landmark => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-md transition-all flex flex-col justify-between";
+                card.innerHTML = `
+                    <div class="h-40 w-full relative">
+                        <img src="${landmark.image}" alt="${landmark.name}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&w=800&q=80'">
+                        <span class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur-sm text-white px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase">${landmark.category === 'historical' ? 'تاريخي وأثري' : 'ترفيهي وثقافي'}</span>
+                    </div>
+                    <div class="p-4 space-y-2 flex-grow flex flex-col justify-between">
+                        <div>
+                            <h4 class="font-extrabold text-sm text-slate-800">${landmark.name}</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed line-clamp-2">${landmark.desc}</p>
+                        </div>
+                        <div class="flex items-center justify-between pt-3 border-t border-slate-200/50">
+                            <button onclick="showSpotDetails('${landmark.name}')" class="text-xs text-emerald-600 font-bold hover:underline">المزيد من التفاصيل</button>
+                            <button onclick="focusOnCoordinates(${landmark.coords[0]}, ${landmark.coords[1]}, '${landmark.name}')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-xl text-xs transition flex items-center gap-1.5 font-bold">
+                                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-500"></i> تحديد الملاحة
+                            </button>
+                        </div>
+                    </div>
+                `;
+                spotsListEl.appendChild(card);
+            });
+
+            // 2. بناء وعرض تذاكر السفر المتاحة ومواعيد الانطلاق
+            const ticketsListEl = document.getElementById('tickets-list');
+            ticketsListEl.innerHTML = '';
+            document.getElementById('ticket-count').innerText = `${countryData.tickets.length} تذاكر متوفرة`;
+
+            countryData.tickets.forEach(ticket => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-400 transition-all flex flex-col justify-between gap-3";
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="bg-blue-50 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-md">${ticket.type}</span>
+                            <h4 class="font-bold text-xs text-slate-700 mt-1.5 flex items-center gap-1.5">
+                                <i data-lucide="plane-takeoff" class="w-3.5 h-3.5 text-blue-500"></i>
+                                من: ${ticket.from}
+                            </h4>
+                            <p class="text-[10px] text-slate-400 mt-1">الوصول الجغرافي لـ ${countryData.name}</p>
+                        </div>
+                        <div class="flex items-center gap-1 text-xs text-amber-500 font-bold">
+                            <i class="fa-solid fa-star text-[10px]"></i>
+                            <span>${ticket.rating}</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs text-slate-600 flex justify-between items-center">
+                        <span><i class="fa-regular fa-clock"></i> الانطلاق: <b>${ticket.time}</b></span>
+                        <span>المدة: <b>${ticket.duration}</b></span>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <div>
+                            <span class="text-[9px] text-slate-400 block font-semibold">تذكرة اتجاه واحد:</span>
+                            <strong class="text-emerald-600 text-base font-extrabold">$${ticket.price}</strong>
+                        </div>
+                        <button onclick="openBookingModalForTicket('${ticket.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3.5 rounded-lg text-[10px] flex items-center gap-1 transition shadow-sm shadow-blue-100">
+                            حجز مقعد الآن
+                        </button>
+                    </div>
+                `;
+                ticketsListEl.appendChild(card);
+            });
+
+            // 3. بناء وعرض الفنادق المناسبة في المنطقة المراد الذهاب إليها
+            const hotelsListEl = document.getElementById('hotels-list');
+            hotelsListEl.innerHTML = '';
+            document.getElementById('hotel-count').innerText = `${countryData.hotels.length} فنادق متوفرة`;
+
+            countryData.hotels.forEach(hotel => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-amber-400 transition-all flex flex-col justify-between gap-3";
+                
+                let amenitiesHTML = '';
+                hotel.amenities.forEach(am => {
+                    amenitiesHTML += `<span class="bg-slate-100 text-slate-600 text-[9px] px-2 py-0.5 rounded">${am}</span>`;
+                });
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-md">${hotel.tag}</span>
+                            <h4 class="font-bold text-xs text-slate-700 mt-1.5 flex items-center gap-1">
+                                <i data-lucide="hotel" class="w-3.5 h-3.5 text-emerald-500"></i>
+                                ${hotel.name}
+                            </h4>
+                        </div>
+                        <div class="flex items-center gap-1 text-xs text-amber-500 font-bold">
+                            <i class="fa-solid fa-star text-[10px]"></i>
+                            <span>${hotel.rating}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1">
+                        ${amenitiesHTML}
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <div>
+                            <span class="text-[9px] text-slate-400 block font-semibold">متوسط الليلة:</span>
+                            <strong class="text-slate-800 text-base font-extrabold">$${hotel.price}</strong>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="focusOnCoordinates(${hotel.coords[0]}, ${hotel.coords[1]}, '${hotel.name}')" class="p-2 border border-slate-200 hover:bg-slate-50 text-rose-500 rounded-lg text-xs" title="عرض موقعه على الجي بي اس">
+                                <i class="fa-solid fa-location-crosshairs animate-pulse"></i>
+                            </button>
+                            <button onclick="openBookingModalForHotel('${hotel.name}', ${hotel.price})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-3.5 rounded-lg text-[10px] transition shadow-sm">
+                                حجز الإقامة
+                            </button>
+                        </div>
+                    </div>
+                `;
+                hotelsListEl.appendChild(card);
+            });
+
+            // تحديث أيقونات Lucide فوراً
+            lucide.createIcons();
+        }
+
+        // عرض تفاصيل المعلم السياحي المختار بالكامل مع توجيهه على الجي بي اس
+        function showSpotDetails(name) {
+            const countryData = database[currentCountry];
+            const spot = countryData.landmarks.find(l => l.name === name);
+
+            if (!spot) return;
+            currentDetailSpot = spot;
+
+            document.getElementById('detail-image').src = spot.image;
+            document.getElementById('detail-title').innerText = spot.name;
+            document.getElementById('detail-desc').innerText = spot.desc;
+            document.getElementById('detail-history').innerText = spot.history;
+            document.getElementById('detail-ticket').innerText = spot.ticket;
+            document.getElementById('detail-hours').innerText = spot.hours;
+            document.getElementById('detail-best-time').innerText = spot.bestTime;
+            document.getElementById('detail-tip').innerText = spot.tip;
+
+            document.getElementById('detail-badge').innerText = spot.category === 'historical' ? 'تاريخي وأثري' : 'ترفيهي وثقافي';
+
+            const card = document.getElementById('spot-detail-card');
+            card.classList.remove('hidden');
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            lucide.createIcons();
+        }
+
+        // دالة مساعدة لاستدعاء التفاصيل بالاسم من الخريطة
+        function showSpotDetailsByName(name) {
+            showSpotDetails(name);
+        }
+
+        // محاكاة الملاحة الفورية على الجي بي اس من موقع المستخدم للمركز السياحي المختار
+        function simulateNavigation() {
+            if (!currentDetailSpot) return;
+
+            const fromCoords = userLocation ? userLocation : database[currentCountry].airport.coords;
+            const toCoords = currentDetailSpot.coords;
+
+            if (map) {
+                map.setView(toCoords, 14);
+
+                // رسم مسار طيران / تنقل بارز وسميك ومتحرك ومشع باللون الأزرق
+                const routePolyline = L.polyline([fromCoords, toCoords], {
+                    color: '#e11d48',
+                    weight: 4,
+                    opacity: 0.9,
+                    dashArray: '10, 10'
+                }).addTo(map);
+                polylines.push(routePolyline);
+
+                showToast(`تم تشغيل توجيه الـ GPS بنجاح! من ${userLocation ? 'موقعك الفعلي' : 'مطار الوصول الإقليمي'} إلى ${currentDetailSpot.name}`);
+            }
+        }
+
+        // طلب إذن الوصول لإحداثيات الـ GPS الفعلية للمستخدم
+        function requestLocation() {
+            const statusEl = document.getElementById('gps-status');
+            statusEl.innerText = "جاري تواصل الملاحة بالأقمار الصناعية...";
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = [position.coords.latitude, position.coords.longitude];
+                        statusEl.innerHTML = `<span class="text-emerald-400 font-bold">✓ تم الاتصال بالأقمار بنجاح!</span> خط عرض: ${userLocation[0].toFixed(4)}، طول: ${userLocation[1].toFixed(4)}`;
+                        
+                        showToast("تم تحديث إحداثيات موقعك الجغرافي الفعلي على نظام الملاحة والـ GPS بنجاح!");
+                        updateMapAndNavigation();
+                    },
+                    (error) => {
+                        statusEl.innerHTML = `<span class="text-rose-400 font-bold">❌ تم الرفض أو فشل التحديد المباشر.</span> تم اعتماد مطار المغادرة كنقطة بداية رئيسية.`;
+                        console.error(error);
+                    }
+                );
+            } else {
+                statusEl.innerText = "متصفحك لا يدعم نظام تحديد المواقع العالمي (GPS).";
+            }
+        }
+
+        // رسم مسار السفر السياحي الأمثل للمدينة باستخدام خوارزمية السائق النمطي (TSP)
+        function generateOptimalRoute() {
+            const countryData = database[currentCountry];
+            const activeLandmarks = countryData.landmarks.filter(l => activeCategory === 'all' || l.category === activeCategory);
+
+            if (activeLandmarks.length === 0) {
+                showToast("لا توجد معالم كافية لرسم المسار المقترح.");
+                return;
+            }
+
+            // ترتيب المعالم السياحية جغرافياً حسب الأقرب للأقرب
+            let start = userLocation ? userLocation : countryData.airport.coords;
+            let unvisited = [...activeLandmarks];
+            let optimalRoute = [start];
+            let stepsHTML = '';
+
+            let counter = 1;
+
+            while (unvisited.length > 0) {
+                let nearestIdx = 0;
+                let minDist = Infinity;
+
+                for (let i = 0; i < unvisited.length; i++) {
+                    let d = getDistance(start, unvisited[i].coords);
+                    if (d < minDist) {
+                        minDist = d;
+                        nearestIdx = i;
+                    }
+                }
+
+                const currentSpot = unvisited[nearestIdx];
+                optimalRoute.push(currentSpot.coords);
+                
+                stepsHTML += `
+                    <div class="flex items-center gap-2 text-xs bg-emerald-50 text-emerald-900 p-2 rounded-xl border border-emerald-100">
+                        <span class="w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center font-bold text-[10px]">${counter}</span>
+                        <div class="flex-grow">
+                            <strong>${currentSpot.name}</strong>
+                            <span class="block text-[10px] text-slate-500">المسافة التقريبية للوصول: ${(minDist * 111).toFixed(1)} كم</span>
+                        </div>
+                    </div>
+                `;
+
+                start = currentSpot.coords;
+                unvisited.splice(nearestIdx, 1);
+                counter++;
+            }
+
+            // رسم الخط الإجمالي للمسار جغرافياً على الخريطة
+            if (map) {
+                const optimalLine = L.polyline(optimalRoute, {
+                    color: '#10b981',
+                    weight: 3.5,
+                    opacity: 0.85
+                }).addTo(map);
+                polylines.push(optimalLine);
+
+                // إظهار لوحة خطوة بخطوة للمسار
+                document.getElementById('route-steps-list').innerHTML = stepsHTML;
+                document.getElementById('route-steps-container').classList.remove('hidden');
+
+                showToast(`تم توليد وتحليل مسار السفر السياحي الأفضل لـ ${countryData.name} بدقة عالية!`);
+            }
+        }
+
+        // دالة رياضية لحساب الأبعاد والمسافات التقريبية
+        function getDistance(coord1, coord2) {
+            let latDiff = coord1[0] - coord2[0];
+            let lngDiff = coord1[1] - coord2[1];
+            return Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+        }
+
+        // إضافة معلم لبرنامج الرحلة من كارد التفاصيل
+        function addToItineraryFromDetail() {
+            if (!currentDetailSpot) return;
+            showToast(`تم إرسال "${currentDetailSpot.name}" لبرنامج التخطيط اليومي للرحلات!`);
+            
+            // الانتقال لتاب المخطط
+            switchTab('planner');
+        }
+
+        // تبديل الأقسام الرئيسية والتبويبات بسلاسة
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-white', 'text-emerald-700', 'shadow-sm');
+                btn.classList.add('text-slate-600', 'hover:text-slate-900');
+            });
+
+            document.getElementById(`section-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabId}`).classList.add('bg-white', 'text-emerald-700', 'shadow-sm');
+            document.getElementById(`tab-${tabId}`).classList.remove('text-slate-600', 'hover:text-slate-900');
+
+            // إعادة تحديث حجم خريطة Leaflet الجغرافية لتلافي أي عيوب في العرض
+            if (tabId === 'explore' && map) {
+                setTimeout(() => {
+                    map.invalidateSize();
+                }, 200);
+            }
+        }
+
+        // إشعار التوست البديل لـ alert()
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = message;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+
+        // مولّد ومجدول برامج السفر التلقائي المخصص
+        function generateItinerary() {
+            const countryVal = document.getElementById('planner-country').value;
+            const daysCount = parseInt(document.getElementById('planner-days').value) || 3;
+            const budgetType = document.getElementById('planner-budget').value;
+            const interest = document.getElementById('planner-type').value;
+
+            const countryData = database[countryVal];
+            const timelineEl = document.getElementById('itinerary-timeline');
+            timelineEl.innerHTML = '';
+
+            let spotsToUse = [...countryData.landmarks];
+            if (interest !== 'all') {
+                spotsToUse = spotsToUse.filter(s => s.category === interest);
+            }
+            if (spotsToUse.length === 0) spotsToUse = countryData.landmarks;
+
+            // تحديد أسعار الفنادق والخدمات لمواكبة نوع الميزانية المقترحة
+            let hotelPrice = countryData.hotels[0].price;
+            let mealCost = budgetType === 'low' ? 25 : budgetType === 'mid' ? 45 : 90;
+            let budgetLabel = budgetType === 'low' ? 'اقتصادي ومدروس' : budgetType === 'mid' ? 'متوسط ومثالي' : 'فاخر ومترف';
+
+            for (let i = 1; i <= daysCount; i++) {
+                // تدوير واستعارة المعالم لكل يوم بالتناوب
+                const primarySpot = spotsToUse[(i - 1) % spotsToUse.length];
+                const backupSpot = spotsToUse[i % spotsToUse.length];
+
+                const dayCard = document.createElement('div');
+                dayCard.className = "relative pr-1 text-slate-800 space-y-2";
+                dayCard.innerHTML = `
+                    <div class="absolute -right-[25px] top-1.5 w-4 h-4 rounded-full bg-emerald-600 border-4 border-white shadow-sm"></div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 hover:shadow-md transition-all space-y-2">
+                        <div class="flex justify-between items-center">
+                            <h4 class="font-bold text-sm text-emerald-800">اليوم الأول ${i} - الاستكشاف العريق</h4>
+                            <span class="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">برنامج مخصص</span>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            <strong>الفترة الصباحية:</strong> زيارة لـ <span class="font-bold text-slate-800">${primarySpot.name}</span> لاستكشاف معالمها والتجول فيها برفقة الدليل الملاحي للـ GPS.
+                        </p>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            <strong>الفترة المسائية:</strong> الانطلاق نحو <span class="font-bold text-slate-800">${backupSpot.name}</span> والاستمتاع بوجبة عشاء تراثية راقية في المنطقة.
+                        </p>
+                        <div class="flex items-center gap-3 pt-2 text-[10px] text-slate-400 border-t border-slate-200/50 flex-wrap">
+                            <span>🏨 السكن المقترح: <b>${countryData.hotels[i % countryData.hotels.length].name}</b></span>
+                            <span>💵 التكلفة المقدرة لليوم: <b>$${hotelPrice + mealCost}</b></span>
+                        </div>
+                    </div>
+                `;
+                timelineEl.appendChild(dayCard);
+            }
+
+            showToast(`تمت صياغة الخطة السياحية لـ ${daysCount} أيام بنجاح تامة في ${countryData.name}!`);
+        }
+
+        // مسح خطة السفر السياحية
+        function clearPlan() {
+            document.getElementById('itinerary-timeline').innerHTML = `
+                <div id="planner-empty-state" class="text-center py-12 text-slate-400">
+                    <i data-lucide="map-pin" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+                    <p class="text-sm">لم تقم بتوليد أي خطة بعد. اضغط على "صياغة وتوليد خطة الرحلة المخصصة" لإنشاء برنامج مميز وتلقائي!</p>
+                </div>
+            `;
+            lucide.createIcons();
+            showToast("تم تصفير الجدول المخطط.");
+        }
+
+        // حاسبة ميزانية السفر الإجمالية للنزيل
+        function calcTotalBudget() {
+            const flight = parseFloat(document.getElementById('budget-flight').value) || 0;
+            const hotel = parseFloat(document.getElementById('budget-hotel').value) || 0;
+            const daily = parseFloat(document.getElementById('budget-daily').value) || 0;
+            const nights = parseFloat(document.getElementById('budget-nights').value) || 0;
+
+            const total = flight + (hotel * nights) + (daily * nights);
+            document.getElementById('budget-total').innerText = `$${total.toFixed(0)}`;
+        }
+
+        // محول العملات التفاعلي الفوري للبلدان المستهدفة
+        function convertCurrency() {
+            const usd = parseFloat(document.getElementById('currency-usd').value) || 0;
+
+            document.getElementById('currency-sar').innerText = (usd * 3.75).toFixed(2);
+            document.getElementById('currency-egp').innerText = (usd * 48.50).toFixed(2);
+            document.getElementById('currency-aed').innerText = (usd * 3.67).toFixed(2);
+            document.getElementById('currency-jod').innerText = (usd * 0.71).toFixed(2);
+        }
+
+        // إضافة غرض جديد لقائمة الأمتعة (Checklist)
+        function addChecklistItem() {
+            const input = document.getElementById('checklist-input');
+            const container = document.getElementById('checklist-container');
+
+            if (!input.value.trim()) return;
+
+            const label = document.createElement('label');
+            label.className = "flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl cursor-pointer transition";
+            label.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" class="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500">
+                    <span class="text-xs text-slate-700">${input.value.trim()}</span>
+                </div>
+                <button onclick="removeChecklistItem(this)" class="text-slate-300 hover:text-red-500"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+            `;
+            container.appendChild(label);
+            input.value = '';
+
+            lucide.createIcons();
+            showToast("تمت إضافة الغرض لقائمتك.");
+        }
+
+        // حذف غرض من قائمة الأمتعة
+        function removeChecklistItem(btn) {
+            btn.parentElement.remove();
+            showToast("تم الحذف من القائمة.");
+        }
+
+        // فتح نافذة الحجز التفاعلي للتذاكر وسفن الفضاء
+        function openBookingModalForTicket(ticketId) {
+            const countryData = database[currentCountry];
+            const ticket = countryData.tickets.find(t => t.id === ticketId);
+
+            if (!ticket) return;
+
+            document.getElementById('modal-title').innerText = "تأكيد حجز تذكرة السفر";
+            document.getElementById('modal-subtitle').innerText = "يرجى مراجعة الجدول الزمني وموعد إقلاع الرحلة لتأكيد مقعدك.";
+
+            document.getElementById('t-from').innerText = ticket.from;
+            document.getElementById('t-to').innerText = countryData.name;
+            document.getElementById('t-time').innerText = ticket.time;
+            document.getElementById('t-type').innerText = ticket.type;
+            document.getElementById('t-price').innerText = `$${ticket.price}`;
+
+            const modal = document.getElementById('booking-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('modal-card').classList.remove('scale-95');
+                document.getElementById('modal-card').classList.add('scale-100');
+            }, 50);
+        }
+
+        // فتح نافذة الحجز للفنادق المناسبة في البلد المختار
+        function openBookingModalForHotel(hotelName, price) {
+            const countryData = database[currentCountry];
+
+            document.getElementById('modal-title').innerText = "تأكيد الحجز الفندقي المباشر";
+            document.getElementById('modal-subtitle').innerText = "تأكيد تفاصيل الغرفة ومدة الإقامة للحصول على كود العبور.";
+
+            document.getElementById('t-from').innerText = "نظام سَافِر الذكي";
+            document.getElementById('t-to').innerText = `${hotelName} (${countryData.name})`;
+            document.getElementById('t-time').innerText = "الدخول متاح من 12:00 م";
+            document.getElementById('t-type').innerText = "غرفة ديلوكس متميزة";
+            document.getElementById('t-price').innerText = `$${price} / ليلة`;
+
+            const modal = document.getElementById('booking-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('modal-card').classList.remove('scale-95');
+                document.getElementById('modal-card').classList.add('scale-100');
+            }, 50);
+        }
+
+        // إغلاق نافذة الحجز
+        function closeBookingModal() {
+            const modal = document.getElementById('booking-modal');
+            document.getElementById('modal-card').classList.remove('scale-100');
+            document.getElementById('modal-card').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        // تأكيد حجز تذكرة الطائرة أو الغرفة بنجاح وتوفير رمز الـ GPS
+        function confirmBooking() {
+            closeBookingModal();
+            showToast("✓ تم تأكيد وحفظ حجزك بنجاح! تم ربط تذكرتك الجغرافية بنظام الـ GPS والملاحة في هاتفك.");
+        }
+
+        // تشغيل البوابة على الفور
+        window.onload = function () {
+            initMap();
+            loadDestinations();
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
